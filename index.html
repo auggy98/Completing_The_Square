@@ -1,0 +1,343 @@
+--- START OF FILE Completing_The_Square_Applet.html ---
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Completing the Square Lab</title>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    
+    <style>
+        :root {
+            --x-color: #ff8b94; --b-color: #a2d2ff; --c-color: #1b627e;
+            --gap-color: #fdfd96; --dark: #2d3436; --accent: #6c5ce7;
+        }
+
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f0f2f5; display: flex; flex-direction: column; align-items: center; padding: 10px; margin: 0; }
+        .container { max-width: 1200px; width: 98%; background: white; padding: 20px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); margin-top: 10px; }
+        
+        .problem-header { background: var(--dark); color: white; padding: 15px; border-radius: 10px; text-align: center; font-size: 1.4rem; margin-bottom: 10px; }
+        .toolbar { display: flex; gap: 10px; justify-content: center; margin-bottom: 15px; }
+        .tool-btn { padding: 8px 18px; font-size: 0.9rem; cursor: pointer; border-radius: 5px; border: 1px solid #ccc; background: white; font-weight: bold; touch-action: manipulation; }
+        .tool-btn:hover:not(:disabled) { background: #eee; }
+        .tool-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+        .layout { display: grid; grid-template-columns: 1.6fr 1fr; gap: 20px; }
+        .canvas-area { height: 530px; border: 2px solid #ddd; border-radius: 10px; position: relative; background: #fff; overflow: hidden; touch-action: none; }
+        
+        .math-bracket { position: absolute; width: 25px; border: 2.5px solid #333; pointer-events: none; z-index: 2; transition: all 0.4s; }
+        .bracket-l { border-right: 0; border-radius: 25px 0 0 25px; }
+        .bracket-r { border-left: 0; border-radius: 0 25px 25px 0; }
+
+        .shape { 
+            position: absolute; display: flex; align-items: center; justify-content: center; 
+            font-weight: bold; border: 1.5px solid #333; z-index: 5; 
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
+            text-align: center; box-sizing: border-box; font-size: 0.9rem;
+        }
+        .draggable { cursor: grab; z-index: 10; border: 3px solid var(--accent); background: #fff; touch-action: none; }
+        .drop-zone { position: absolute; border: 2px dashed #999; background: rgba(0,0,0,0.02); z-index: 1; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #777; font-size: 0.8rem; pointer-events: none; font-weight: bold; }
+
+        .step-panel { background: #f9f9f9; padding: 25px; border-radius: 10px; border: 1px solid #eee; min-height: 480px; }
+        .step-card { display: none; }
+        .step-card.active { display: block; animation: fadeIn 0.3s; }
+        
+        input[type="text"] { padding: 10px; border: 2px solid #ccc; border-radius: 6px; width: 100px; text-align: center; font-size: 1.1rem; transition: border-color 0.3s, background 0.3s; }
+        input.correct { border-color: #00b894 !important; background: #e6fffb !important; }
+        input.wrong { border-color: #d63031 !important; background: #fff5f5 !important; }
+
+        .final-equation-row {
+            background: white; padding: 25px 10px; border-radius: 12px; border: 1px solid #ddd;
+            margin-top: 20px; display: flex; align-items: center; justify-content: center; 
+            gap: 5px; font-size: 1.8rem; font-family: "Times New Roman", Times, serif;
+            white-space: nowrap;
+        }
+        .final-equation-row i { font-style: italic; }
+        .sup { font-size: 1.1rem; vertical-align: top; position: relative; top: -12px; left: -2px; }
+
+        .btn-action { padding: 12px 25px; background: var(--dark); color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; margin-top: 15px; width: 100%; font-size: 1rem; }
+        .btn-hint { background: none; border: 1.5px solid var(--accent); color: var(--accent); padding: 5px 15px; margin-top: 10px; font-size: 0.85rem; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        .hint-text { display: none; margin-top: 10px; padding: 12px; background: #fffbe6; border: 1px solid #ffe58f; border-radius: 5px; font-size: 0.95rem; color: #856404; }
+        .feedback { margin-top: 15px; font-size: 1rem; font-weight: bold; min-height: 1.2em; line-height: 1.4; }
+        .error { color: #d63031; } .success { color: #00b894; }
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="problem-header" id="persistentHeader">Completing the Square Lab</div>
+
+    <div class="toolbar">
+        <button class="tool-btn" id="undoBtn" onclick="undo()" disabled>⟲ Undo</button>
+        <button class="tool-btn" id="redoBtn" onclick="redo()" disabled>⟳ Redo</button>
+        <button class="tool-btn" onclick="restart()">↺ New Problem</button>
+    </div>
+
+    <div class="layout">
+        <div class="canvas-area" id="canvas"></div>
+
+        <div class="step-panel" aria-live="polite">
+            <div id="step0" class="step-card active">
+                <h3>1. Setup Expression</h3>
+                <div style="display: flex; gap: 8px; justify-content: center; align-items: center; margin: 30px 0;">
+                    <input type="text" id="inA" value="3"> \(x^2 + \)
+                    <input type="text" id="inB" value="-13"> \(x + \)
+                    <input type="text" id="inC" value="5">
+                </div>
+                <button class="btn-action" onclick="startApp()">Begin Solving</button>
+            </div>
+
+            <div id="step1" class="step-card">
+                <h3>2. Factorise out \(a\)</h3>
+                <div id="step1Equation" style="background:white; padding:20px; border-radius:8px; border:1px solid #ddd; text-align:center; font-size:1.5rem;"></div>
+                <button class="btn-action" onclick="checkStep1()">Verify</button>
+                <div id="fb1" class="feedback"></div>
+            </div>
+
+            <div id="step2" class="step-card">
+                <h3>3. Split the middle term</h3>
+                <p>The middle term is <span id="middleTermDisplay" style="color:var(--accent); font-weight:bold;"></span>. What is half of it?</p>
+                <div style="background:white; padding:20px; border-radius:8px; border:1px solid #ddd; text-align:center;">
+                    Each piece = <input type="text" id="uSplit"> \(x\)
+                </div>
+                <button class="btn-action" onclick="checkStep2()">Verify Split</button>
+                <div id="fb2" class="feedback"></div>
+            </div>
+
+            <div id="step3" class="step-card">
+                <h3>4. Geometric Rearrange</h3>
+                <p>One half stays next to \(x^2\). <b>Drag</b> the other half from inside the bracket to the Target Zone.</p>
+                <div id="fb3" class="feedback"></div>
+            </div>
+
+            <div id="step4" class="step-card">
+                <h3>5. Calculate the Gap</h3>
+                <p>Determine the dimensions and area of the missing yellow square inside the brackets.</p>
+                <div style="background:white; padding:15px; border-radius:8px; border:1px solid #ddd; display:grid; grid-template-columns: 1fr 1fr; gap:15px;">
+                    <div>Width: <input type="text" id="gW"></div>
+                    <div>Height: <input type="text" id="gH"></div>
+                    <div style="grid-column: span 2; text-align:center; border-top: 1px solid #eee; padding-top: 10px;">Area of Gap: <input type="text" id="gA"></div>
+                </div>
+                <button class="btn-action" onclick="checkStep4()">Verify Gap</button>
+                <div id="fb4" class="feedback"></div>
+            </div>
+
+            <div id="step5" class="step-card">
+                <h3>6. Final Vertex Form</h3>
+                <button class="btn-hint" onclick="toggleHint()">Need a Hint?</button>
+                <div id="hintArea" class="hint-text"><b>Hint:</b> Calculate \(q = c - a \times (gap)\)</div>
+                <div id="finalEquationRow" class="final-equation-row"></div>
+                <button class="btn-action" onclick="checkStep5()">Check Final Answer</button>
+                <div id="fb5" class="feedback"></div>
+                <button class="btn-action" id="finalRestart" style="display:none; background:#00b894" onclick="restart()">Solve Another</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let state = { a:0, b:0, c:0, bP:0, gap:0, step:0, rectSnapped: false };
+    let history = []; let historyIdx = -1;
+
+    function gcd(a, b) { return b ? gcd(b, a % b) : a; }
+    
+    function toFrac(val) {
+        if (isNaN(val)) return "?";
+        const sign = val < 0 ? "-" : ""; val = Math.abs(val);
+        if (Math.abs(val - Math.round(val)) < 1e-8) return sign + Math.round(val).toString();
+        for (let d = 1; d <= 4000; d++) {
+            let n = Math.round(val * d);
+            if (Math.abs(val - n / d) < 1e-8) { let common = gcd(n, d); return `${sign}\\frac{${n/common}}{${d/common}}`; }
+        }
+        return sign + val.toFixed(2);
+    }
+
+    function signStr(val, first = false) {
+        if (val === 0) return "";
+        const s = val < 0 ? "-" : "+";
+        return first ? `${s}${toFrac(Math.abs(val))}` : `${s} ${toFrac(Math.abs(val))}`;
+    }
+
+    function parseFrac(str) {
+        if (!str || str.trim() === "") return NaN;
+        const match = str.trim().match(/^([+-]?\d+(?:\.\d+)?)(?:\s*\/\s*([+-]?\d+(?:\.\d+)?))?$/);
+        if (!match) return NaN;
+        const num = parseFloat(match[1]);
+        const den = match[2] ? parseFloat(match[2]) : 1;
+        return den === 0 ? NaN : num / den;
+    }
+
+    // Helper for targeted feedback
+    function validateInput(inputVal, targetVal) {
+        if (Math.abs(inputVal - targetVal) < 1e-6) return { ok: true };
+        if (Math.abs(Math.abs(inputVal) - Math.abs(targetVal)) < 1e-6) return { ok: false, msg: "Check your sign." };
+        return { ok: false, msg: "Check the numerical value." };
+    }
+
+    function startApp() {
+        state.a = parseFrac(document.getElementById('inA').value);
+        state.b = parseFrac(document.getElementById('inB').value);
+        state.c = parseFrac(document.getElementById('inC').value);
+        if(isNaN(state.a) || state.a === 0 || isNaN(state.b) || isNaN(state.c)) { alert("Enter valid coefficients. 'a' cannot be zero."); return; }
+        state.bP = state.b / state.a;
+        state.gap = (state.bP / 2) ** 2;
+        state.rectSnapped = false;
+        saveState(state.a === 1 ? 2 : 1);
+        render();
+    }
+
+    function checkStep1() {
+        const input = document.getElementById('uBPrime');
+        const res = validateInput(parseFrac(input.value), state.bP);
+        if (res.ok) { input.className = 'correct'; saveState(2); render(); } 
+        else { input.className = 'wrong'; setFeedback('fb1', res.msg, 'error'); }
+    }
+
+    function checkStep2() {
+        const input = document.getElementById('uSplit');
+        const res = validateInput(parseFrac(input.value), state.bP/2);
+        if (res.ok) { input.className = 'correct'; saveState(3); render(); }
+        else { input.className = 'wrong'; setFeedback('fb2', res.msg, 'error'); }
+    }
+
+    function checkStep4() {
+        const wI = document.getElementById('gW'), hI = document.getElementById('gH'), aI = document.getElementById('gA');
+        const w = parseFrac(wI.value), h = parseFrac(hI.value), a = parseFrac(aI.value);
+        const targetSide = state.bP / 2;
+        const wRes = validateInput(w, targetSide);
+        const hRes = validateInput(h, targetSide);
+        const aRes = validateInput(a, state.gap);
+        wI.className = wRes.ok ? 'correct' : 'wrong'; 
+        hI.className = hRes.ok ? 'correct' : 'wrong'; 
+        aI.className = aRes.ok ? 'correct' : 'wrong';
+        if (wRes.ok && hRes.ok && aRes.ok) { saveState(5); render(); } 
+        else { 
+            let msg = !wRes.ok ? "Width: " + wRes.msg : (!hRes.ok ? "Height: " + hRes.msg : "Area: " + aRes.msg);
+            setFeedback('fb4', msg, 'error'); 
+        }
+    }
+
+    function checkStep5() {
+        const faI = document.getElementById('fA'), fpI = document.getElementById('fP'), fqI = document.getElementById('fQ');
+        const fa = state.a === 1 ? 1 : parseFrac(faI.value), fp = parseFrac(fpI.value), fq = parseFrac(fqI.value);
+        const targetQ = state.c - (state.a * state.gap);
+        const aRes = validateInput(fa, state.a);
+        const pRes = validateInput(fp, state.bP/2);
+        const qRes = validateInput(fq, targetQ);
+        if(faI) faI.className = aRes.ok ? 'correct' : 'wrong'; 
+        fpI.className = pRes.ok ? 'correct' : 'wrong'; 
+        fqI.className = qRes.ok ? 'correct' : 'wrong';
+
+        if (aRes.ok && pRes.ok && qRes.ok) {
+            setFeedback('fb5', 'Success!', 'success');
+            const targetP = state.bP / 2;
+            const finalEq = `${state.a === 1 ? '' : toFrac(state.a)}(x ${signStr(targetP)})^2 ${signStr(targetQ)}`;
+            const resultBox = document.createElement('div');
+            resultBox.style.padding = "10px"; resultBox.style.marginTop = "10px";
+            resultBox.style.border = "1.5px solid #00b894"; resultBox.style.borderRadius = "8px"; resultBox.style.background = "#fff";
+            resultBox.innerHTML = `Final Form: \\( ${finalEq} \\)`;
+            document.getElementById('fb5').appendChild(resultBox);
+            document.getElementById('finalRestart').style.display = 'block';
+            MathJax.typesetPromise([resultBox]);
+        } else { 
+            let msg = !aRes.ok ? "a: " + aRes.msg : (!pRes.ok ? "p: " + pRes.msg : "q: " + qRes.msg);
+            setFeedback('fb5', msg, 'error'); 
+        }
+    }
+
+    function saveState(n) {
+        const inputs = {}; document.querySelectorAll('input').forEach(i => inputs[i.id] = i.value);
+        state.step = n;
+        history = history.slice(0, historyIdx + 1);
+        history.push({ state: JSON.parse(JSON.stringify(state)), inputs });
+        historyIdx++; updateToolbar();
+    }
+    function undo() { if (historyIdx > 0) { historyIdx--; applyHistory(); } }
+    function redo() { if (historyIdx < history.length - 1) { historyIdx++; applyHistory(); } }
+    function applyHistory() {
+        const item = history[historyIdx]; state = JSON.parse(JSON.stringify(item.state));
+        render(); for (let id in item.inputs) { if(document.getElementById(id)) document.getElementById(id).value = item.inputs[id]; }
+        updateToolbar();
+    }
+    function updateToolbar() { document.getElementById('undoBtn').disabled = historyIdx <= 0; document.getElementById('redoBtn').disabled = historyIdx >= history.length - 1; }
+    function restart() { location.reload(); }
+    function toggleHint() { const h = document.getElementById('hintArea'); h.style.display = (h.style.display === 'block') ? 'none' : 'block'; }
+
+    function render() {
+        const aHead = state.a === 1 ? "" : toFrac(state.a);
+        document.getElementById('persistentHeader').innerHTML = `Problem: \\( ${aHead}x^2 ${signStr(state.b)}x ${signStr(state.c)} \\)`;
+        const s1Box = document.getElementById('step1Equation');
+        s1Box.innerHTML = `${state.a === 1 ? '' : '\\('+toFrac(state.a)+'\\)'} ( \\(x^2\\) + <input type="text" id="uBPrime"> \\(x\\) ) ${signStr(state.c)}`;
+        document.querySelectorAll('.step-card').forEach((c, i) => c.classList.toggle('active', i === state.step));
+        if(state.step === 2) document.getElementById('middleTermDisplay').innerHTML = `\\(${toFrac(state.bP)}x\\)`;
+        const finalRow = document.getElementById('finalEquationRow');
+        finalRow.innerHTML = `${state.a === 1 ? "" : '<input type="text" id="fA" placeholder="a" style="width:70px;">'}
+            <span>( <i>x</i> + </span><input type="text" id="fP" placeholder="p"><span>)</span><span class="sup">2</span> + <input type="text" id="fQ" placeholder="q">`;
+        if (state.step >= 2) drawGeometry();
+        if (window.MathJax?.typesetPromise) MathJax.typesetPromise();
+    }
+
+    function drawGeometry() {
+        const canvas = document.getElementById('canvas');
+        const X = 110, RECT = 110, m = 80;
+        canvas.innerHTML = `<div style="position:absolute; top:15px; left:15px; font-weight:bold; color:#666">Area Model</div>`;
+        const startX = (state.a === 1) ? 60 : 180; 
+        const bracketWidth = state.rectSnapped ? (X + RECT/2 + 25) : (X + RECT + 30);
+        if (state.a !== 1) {
+            const h = state.rectSnapped ? X + RECT/2 + 45 : X + 45;
+            canvas.innerHTML += `<div style="position:absolute; top:${m + X/2 - 25}px; left:${startX - 145}px; font-size:2.2rem; font-weight:bold; width:90px; text-align:right;">\\(${toFrac(state.a)}\\)</div>`;
+            canvas.innerHTML += `<div class="math-bracket bracket-l" style="top:${m-15}px; left:${startX-45}px; height:${h}px;"></div>`;
+            canvas.innerHTML += `<div class="math-bracket bracket-r" style="top:${m-15}px; left:${startX + bracketWidth}px; height:${h}px;"></div>`;
+        }
+        canvas.innerHTML += `<div class="shape" style="background:var(--x-color); width:${X}px; height:${X}px; top:${m}px; left:${startX}px;">x²</div>`;
+        if (state.step === 2) {
+            canvas.innerHTML += `<div class="shape" style="background:var(--b-color); width:${RECT}px; height:${X}px; top:${m}px; left:${startX + X + 8}px;">\\(${toFrac(state.bP)}x\\)</div>`;
+        }
+        if (state.step >= 3) {
+            canvas.innerHTML += `<div class="shape" style="background:var(--b-color); width:${RECT/2}px; height:${X}px; top:${m}px; left:${startX + X + 8}px;">\\(${toFrac(state.bP/2)}x\\)</div>`;
+            const dX = startX + X + RECT/2 + 20;
+            canvas.innerHTML += `<div id="dRect" class="shape ${state.rectSnapped ? '' : 'draggable'}" 
+                                 style="background:var(--b-color); width:${state.rectSnapped ? X : RECT/2}px; height:${state.rectSnapped ? RECT/2 : X}px; 
+                                 top:${state.rectSnapped ? m+X+10 : m}px; left:${state.rectSnapped ? startX : dX}px;">\\(${toFrac(state.bP/2)}x\\)</div>`;
+        }
+        if (state.step === 3 && !state.rectSnapped) canvas.innerHTML += `<div class="drop-zone" style="width:${X}px; height:${RECT/2}px; top:${m + X + 10}px; left:${startX}px;">Target Zone</div>`;
+        const constX = Math.max(startX + bracketWidth + 180, 560);
+        canvas.innerHTML += `<div class="shape" style="background:var(--c-color); color:white; width:100px; height:80px; top:${m + X/2 - 40}px; left:${constX}px;">\\(${signStr(state.c, true)}\\)</div>`;
+        if (state.step >= 4) {
+            const val = (state.step >= 5) ? `\\(${toFrac(state.gap)}\\)` : "";
+            canvas.innerHTML += `<div class="shape" style="background:var(--gap-color); width:${RECT/2}px; height:${RECT/2}px; top:${m+X+10}px; left:${startX+X+8}px;">${val}</div>`;
+            const balY = m + X + 20, balVal = -1 * state.a;
+            const balLabel = state.a === 1 ? "-" : `${balVal > 0 ? '+' : '-'} ${toFrac(Math.abs(state.a))} \\times`;
+            canvas.innerHTML += `<div style="position:absolute; top:${balY+15}px; left:${constX - 160}px; font-size:1.8rem; font-weight:bold; width:150px; text-align:right;">\\(${balLabel}\\)</div>`;
+            canvas.innerHTML += `<div class="shape" style="background:var(--gap-color); width:85px; height:85px; top:${balY}px; left:${constX}px;">${val}</div>`;
+        }
+        if (state.step === 3 && !state.rectSnapped) setupDragging(X, m, startX, startX + X + RECT/2 + 20);
+    }
+
+    function setupDragging(X, m, sX, origX) {
+        const drifter = document.getElementById('dRect');
+        if (!drifter) return;
+        let initialX, initialY;
+        const handleMove = (e) => { drifter.style.left = (e.clientX - initialX) + 'px'; drifter.style.top = (e.clientY - initialY) + 'px'; };
+        const handleUp = () => {
+            document.removeEventListener("pointermove", handleMove); document.removeEventListener("pointerup", handleUp);
+            if (Math.abs(parseInt(drifter.style.left) - sX) < 50 && Math.abs(parseInt(drifter.style.top) - (m+X+10)) < 60) { state.rectSnapped = true; saveState(4); render(); } 
+            else { drifter.style.transition = 'all 0.4s'; drifter.style.left = origX + 'px'; drifter.style.top = m + 'px'; }
+        };
+        drifter.addEventListener("pointerdown", (e) => {
+            drifter.setPointerCapture(e.pointerId); initialX = e.clientX - drifter.offsetLeft; initialY = e.clientY - drifter.offsetTop;
+            drifter.style.transition = 'none'; document.addEventListener("pointermove", handleMove); document.addEventListener("pointerup", handleUp);
+        });
+    }
+
+    function setFeedback(id, m, t) { 
+        const el = document.getElementById(id); el.className = 'feedback ' + t; el.innerHTML = m; 
+        if (window.MathJax?.typesetPromise) MathJax.typesetPromise([el]);
+    }
+</script>
+
+</body>
+</html>
